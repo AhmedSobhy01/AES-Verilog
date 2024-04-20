@@ -10,7 +10,7 @@ module KeyExpansionRound(roundCount, keyIn, keyOut);
     wire [31:0] words[3:0];
 
     generate
-        for (i = 0; i < 4; i = i + 1) begin
+        for (i = 0; i < 4; i = i + 1) begin: KeySplitLoop
             assign words[i] = keyIn[127 - i * 32 -: 32];
         end
     endgenerate
@@ -22,8 +22,9 @@ module KeyExpansionRound(roundCount, keyIn, keyOut);
     wire [31:0] w3Sub;
 
     generate
-        for (i = 0; i < 4; i = i + 1)
+        for (i = 0; i < 4; i = i + 1) begin: SBoxLoop
             SBox sBox(w3Rot[i * 8 +: 8], w3Sub[i * 8 +: 8]);
+        end
     endgenerate
 
     // Perform the XOR operation with the round constant (roundConstant)
@@ -53,14 +54,14 @@ endmodule
 
 module KeyExpansion(keyIn, keysOut);    
     input [127:0] keyIn;
-    output [(11 * 128) - 1:0] keysOut;
+    output [(12 * 128) - 1:0] keysOut;
 
     assign keysOut[127:0] = keyIn;
     
     // Perform the key expansion rounds (KeyExpansionRound)
     genvar i;
     generate
-        for (i = 0; i < 12; i = i + 1) begin : KeyExpansionLoop
+        for (i = 0; i < 11; i = i + 1) begin : KeyExpansionLoop
             KeyExpansionRound keyExpansionRound(i + 1, keysOut[127 + i * 128 -: 128], keysOut[255 + i * 128 -: 128]);
         end
     endgenerate
