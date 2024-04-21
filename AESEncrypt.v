@@ -43,14 +43,12 @@ endmodule
 
 
 module AESEncrypt_DUT();
-
 	reg [127:0] data;
 	reg [127:0] key;
 	wire [127:0] out;
 	reg clk;
-	AESEncrypt ahmedSobhy(data,key,out,clk);
 
-
+	AESEncrypt aes(data,key,out,clk);
 
 	initial begin
 		key = 128'h000102030405060708090a0b0c0d0e0f;
@@ -58,8 +56,6 @@ module AESEncrypt_DUT();
 		clk = 0;
 		forever #10 clk = ~clk;
 	end
-
-
 endmodule
 
 
