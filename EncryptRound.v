@@ -7,7 +7,7 @@ module EncryptRound(stateIn,key,stateOut);
 	wire [127:0] shiftRowsWire;
 	wire [127:0] mixColumnsWire;
 
-	SubByte sub(stateIn,subByteWire);
+	SubBytes sub(stateIn,subByteWire);
 	ShiftRows shft(subByteWire,shiftRowsWire);	
 	MixColumns mix(shiftRowsWire,mixColumnsWire);	
 	AddRoundKey addkey(mixColumnsWire,key,stateOut);
@@ -24,7 +24,7 @@ module LastEncryptRound(stateIn,key,stateOut);
 	wire [127:0] subByteWire;
 	wire [127:0] shiftRowsWire;
 
-	SubByte sub(stateIn,subByteWire);
+	SubBytes sub(stateIn,subByteWire);
 	ShiftRows shft(subByteWire,shiftRowsWire);	
 	AddRoundKey addkey(shiftRowsWire,key,stateOut);
 
