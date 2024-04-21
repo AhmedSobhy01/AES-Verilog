@@ -1,4 +1,4 @@
-module ShiftRows(in, out);
+module InvShiftRows(in, out);
     input [127:0] in;
     output [127:0] out;
 
@@ -31,10 +31,10 @@ module ShiftRows(in, out);
     assign out[31:24] = in[31:24];
 
     // 2nd row shift 1
-    assign out[119:112] = in[87:80];
-    assign out[87:80] = in[55:48];
-    assign out[55:48] = in[23:16];
-    assign out[23:16] = in[119:112];
+    assign out[119:112] = in[23:16];
+    assign out[87:80] = in[119:112];
+    assign out[55:48] = in[87:80];
+    assign out[23:16] = in[55:48];
 
     // 3rd row shift 2
     assign out[111:104] = in[47:40];
@@ -43,27 +43,27 @@ module ShiftRows(in, out);
     assign out[15:8] = in[79:72];
 
     // 4th row shift 3
-    assign out[103:96] = in[7:0];
-    assign out[71:64] = in[103:96];
-    assign out[39:32] = in[71:64];
-    assign out[7:0] = in[39:32];
+    assign out[103:96] = in[71:64];
+    assign out[71:64] = in[39:32];
+    assign out[39:32] = in[7:0];
+    assign out[7:0] = in[103:96];
 endmodule
 
-module ShiftRows_DUT();
+module InvShiftRows_DUT();
     reg [127:0] in;
-    wire  [127:0] out;
+    wire [127:0] out;
+
+    InvShiftRows isr(in, out);
 
     initial begin
-        in = 128'h_adcb0f257e9c63e0bc557e951c15ef01;
+        in = 128'h_aa5ece06ee6e3c56dde68bac2621bebf;
         #10;
-        in = 128'h_884a33781fdb75c2d380349e19f876fb;  
+        in = 128'h_d1ed44fd1a0f3f2afa4ff27b7c332a69;  
     end
 
-    ShiftRows sr(in, out);
-
     initial begin
-        $display("ShiftRows_DUT");
+        $display("InvShiftRows_DUT");
         $display("==================================");
-        $monitor("In = %h, Out = %h", in, out);
+        $monitor("in = %h, out = %h", in, out);
     end
 endmodule
