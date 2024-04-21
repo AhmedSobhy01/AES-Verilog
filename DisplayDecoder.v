@@ -1,6 +1,10 @@
-module DisplayDecoder(in,display7);
-	input [3:0]in;
-  	output [6:0]display7;
+module DisplayDecoder(in, out);
+	input [3:0] in;
+    output [6:0] out;
+
+    reg [6:0] display7;
+
+    assign out = display7;
 
 	always @(in)
 		case(in)
@@ -16,5 +20,4 @@ module DisplayDecoder(in,display7);
             9 : display7 = 7'b0000100;
             default : display7 = 7'b1111111; 
         endcase
-	
 endmodule
