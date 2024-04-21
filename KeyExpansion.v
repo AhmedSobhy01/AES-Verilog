@@ -54,14 +54,14 @@ endmodule
 
 module KeyExpansion(keyIn, keysOut);    
     input [127:0] keyIn;
-    output [(12 * 128) - 1:0] keysOut;
+    output [(11 * 128) - 1:0] keysOut;
 
     assign keysOut[127:0] = keyIn;
     
     // Perform the key expansion rounds (KeyExpansionRound)
     genvar i;
     generate
-        for (i = 0; i < 11; i = i + 1) begin : KeyExpansionLoop
+        for (i = 0; i < 10; i = i + 1) begin : KeyExpansionLoop
             KeyExpansionRound keyExpansionRound(i + 1, keysOut[127 + i * 128 -: 128], keysOut[255 + i * 128 -: 128]);
         end
     endgenerate
