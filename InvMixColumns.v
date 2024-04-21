@@ -44,7 +44,7 @@ module InvMixColumns (stateIn,stateOut);
 	
 	genvar i;
 	generate
-		for(i = 0; i < 4; i = i + 1)begin
+		for(i = 0; i < 4; i = i + 1)begin: InvMixColumnsLoop
 			//state[0,c] = 0e*state[0,c] + 0b*state[1,c] + 0d*state[2,c] + 09*state[3,c]
 			assign stateOut[32*i+24+:8] =  mb0e(stateIn[32*i+24+:8]) ^ mb0b(stateIn[32*i+16+:8]) ^ mb0d(stateIn[32*i+8 +:8]) ^ mb09(stateIn[32*i   +:8]);
 			
