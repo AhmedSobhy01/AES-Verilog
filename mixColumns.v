@@ -14,7 +14,7 @@ module MixColumns (stateIn,stateOut);
 	
 	genvar i;
 	generate
-		for(i = 0; i < 4; i = i + 1)begin
+		for(i = 0; i < 4; i = i + 1)begin: mixColumnsLoop
 			//state[0,c] = 2*state[0,c] + (2 * state[1,c] + state[1,c]) + state[2,c] + state[3,c]
 			assign stateOut[32*i+24+:8] =  xtime(stateIn[32*i+24+:8]) ^ (xtime(stateIn[32*i+16+:8]) ^ stateIn[32*i+16+:8]) ^ stateIn[32*i+8 +:8] ^ stateIn[32*i   +:8];
 			
