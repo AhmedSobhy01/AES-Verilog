@@ -1,8 +1,9 @@
 
-module AESEncrypt #(parameter Nk = 4,parameter Nr = 10) (data, key, out, clk);
+module AESEncrypt #(parameter Nk = 4,parameter Nr = 10) (data, key, out, clk,done);
 	input [127:0] data;
 	input [Nk * 32 - 1:0] key;
 	input clk;
+	output done;
 	output [127:0] out;
 
 	reg [127:0] state;
@@ -19,6 +20,7 @@ module AESEncrypt #(parameter Nk = 4,parameter Nr = 10) (data, key, out, clk);
 	LastEncryptRound lastRound(state,keyReg,stateAfterLastRound);
 
 	assign out = state;
+	assign done = roundCount == Nr+2;
 
 	always @(posedge clk) begin
 		if (roundCount == 0) begin

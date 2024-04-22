@@ -1,7 +1,8 @@
-module AESDecrypt #(parameter Nk = 4,parameter Nr = 10) (data, key, out, clk);
+module AESDecrypt #(parameter Nk = 4,parameter Nr = 10) (data, key, out, clk,active);
 	input [127:0] data;
 	input [Nk * 32 - 1:0] key;
 	input clk;
+	input active;
 	output [127:0] out;
 	
 	reg [127:0] state;
@@ -35,7 +36,7 @@ module AESDecrypt #(parameter Nk = 4,parameter Nr = 10) (data, key, out, clk);
 		if (roundCount > 0 && roundCount < Nr + 1)
 			keyReg <= allKeys [((11 * 128) - roundCount * 128 - 1) -: 128 ];	
 
-		if (roundCount < Nr + 2)
+		if (roundCount < Nr + 2 && active)
 			roundCount <= roundCount + 1;
 	end
 endmodule
