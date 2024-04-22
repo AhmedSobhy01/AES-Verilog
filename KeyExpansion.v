@@ -23,7 +23,7 @@ module KeyExpansionRound(roundCount, keyIn, keyOut);
 
     generate
         for (i = 0; i < 4; i = i + 1) begin: SBoxLoop
-            SBox sBox(w3Rot[i * 8 +: 8], w3Sub[i * 8 +: 8]);
+            SubTable sBox(w3Rot[i * 8 +: 8], w3Sub[i * 8 +: 8]);
         end
     endgenerate
 
