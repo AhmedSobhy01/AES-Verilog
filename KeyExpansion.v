@@ -62,7 +62,7 @@ module KeyExpansion(keyIn, keysOut);
     genvar i;
     generate
         for (i = 0; i < 10; i = i + 1) begin : KeyExpansionLoop
-            KeyExpansionRound keyExpansionRound(i + 1, keysOut[127 + i * 128 -: 128], keysOut[255 + i * 128 -: 128]);
+            KeyExpansionRound keyExpansionRound(i[3:0], keysOut[127 + i * 128 -: 128], keysOut[255 + i * 128 -: 128]);
         end
     endgenerate
 endmodule
