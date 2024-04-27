@@ -1,4 +1,7 @@
-module AES #(parameter Nk = 4, parameter Nr = 10) (encryptedOutputReg, decryptedOutputReg, HEX0, HEX1, HEX2, clk);
+module AES (encryptedOutputReg, decryptedOutputReg, HEX0, HEX1, HEX2, clk);
+    localparam Nk = 4;
+    localparam Nr = 10;
+
     input clk;
     output [6:0] HEX0;
     output [6:0] HEX1;
@@ -8,11 +11,13 @@ module AES #(parameter Nk = 4, parameter Nr = 10) (encryptedOutputReg, decrypted
     output reg [127:0] decryptedOutputReg = 128'h00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00;
 
     // Key
-    wire [127:0] key = 128'h00_01_02_03_04_05_06_07_08_09_0a_0b_0c_0d_0e_0f;
+    wire [127:0] key = 128'h000102030405060708090a0b0c0d0e0f;
+    // wire [191:0] 192key = 192'h000102030405060708090a0b0c0d0e0f1011121314151617;
+    // wire [255:0] 256key = 256'h000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f;
 
     // Key Expansion
-    wire [(11 * 128) - 1:0] allKeys;
-    KeyExpansion keysGetter(key, allKeys);
+    wire [((Nr + 1) * 128) - 1:0] allKeys;
+    KeyExpansion #(Nk, Nr) keysGetter(key, allKeys);
 
     // Data
     wire [127:0] data = 128'h00_11_22_33_44_55_66_77_88_99_aa_bb_cc_dd_ee_ff;
@@ -33,11 +38,11 @@ module AES #(parameter Nk = 4, parameter Nr = 10) (encryptedOutputReg, decrypted
 
     // Encrypt
     reg AESEncryptEnable = 1'b1;
-    AESEncrypt AESE(data, allKeys, tempEncryptedOutput, clk, AESEncryptEnable);
+    AESEncrypt #(Nk, Nr) AESE128(data, allKeys, tempEncryptedOutput, clk, AESEncryptEnable);
 
     // Decrypt
     reg AESDecryptEnable = 1'b0;
-    AESDecrypt AESD(tempEncryptedOutput, allKeys, tempDecryptedOutput, clk, AESDecryptEnable);
+    AESDecrypt #(Nk, Nr) AESD(tempEncryptedOutput, allKeys, tempDecryptedOutput, clk, AESDecryptEnable);
 
     reg [4:0] count = 0;
     always @(posedge clk) begin
@@ -70,7 +75,7 @@ module AES_DUT();
     wire [127:0] decrypted;
     wire [6:0] HEX0, HEX1, HEX2;
 
-    AES AES(encrypted, decrypted, HEX0, HEX1, HEX2, clk);
+    AES aes(encrypted, decrypted, HEX0, HEX1, HEX2, clk);
 
     reg [4:0] count = 5'b00000;
     initial begin
