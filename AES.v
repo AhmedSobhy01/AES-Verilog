@@ -8,14 +8,14 @@ module AES #(parameter Nk = 4, parameter Nr = 10) (encryptedOutputReg, decrypted
     output reg [127:0] decryptedOutputReg = 128'h00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00;
 
     // Key
-    wire [127:0] key = 128'h_000102030405060708090a0b0c0d0e0f;
+    wire [127:0] key = 128'h00_01_02_03_04_05_06_07_08_09_0a_0b_0c_0d_0e_0f;
 
     // Key Expansion
     wire [(11 * 128) - 1:0] allKeys;
     KeyExpansion keysGetter(key, allKeys);
 
     // Data
-    wire [127:0] data = 128'h_00112233445566778899aabbccddeeff;
+    wire [127:0] data = 128'h00_11_22_33_44_55_66_77_88_99_aa_bb_cc_dd_ee_ff;
 
     // AES
     wire [127:0] tempEncryptedOutput;
