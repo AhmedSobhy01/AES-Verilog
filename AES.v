@@ -22,7 +22,7 @@ module AES #(parameter Nk = 4, parameter Nr = 10) (encryptedOutputReg, decrypted
     wire [127:0] tempDecryptedOutput;
 	
     // Binary to BCD Logic
-    reg [7:0] bcdInput = 8'b_00000000;
+    reg [7:0] bcdInput = 8'b00000000;
     wire [11:0] bcdOutput;
 	Binary2BCD b2b(bcdInput, bcdOutput);
 
