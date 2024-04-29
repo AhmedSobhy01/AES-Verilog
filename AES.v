@@ -1,12 +1,11 @@
-module AES #(parameter Nk = 4, parameter Nr = 10) (encryptedOutputReg, decryptedOutputReg, HEX0, HEX1, HEX2, clk);
+module AES (HEX0, HEX1, HEX2, clk);
+	localparam Nk =4;
+	localparam Nr = 10;
     input clk;
     output [6:0] HEX0;
     output [6:0] HEX1;
     output [6:0] HEX2;
-
-    output reg [127:0] encryptedOutputReg = 128'h00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00;
-    output reg [127:0] decryptedOutputReg = 128'h00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00;
-
+	
     // Key
     wire [127:0] key = 128'h00_01_02_03_04_05_06_07_08_09_0a_0b_0c_0d_0e_0f;
 
@@ -32,35 +31,33 @@ module AES #(parameter Nk = 4, parameter Nr = 10) (encryptedOutputReg, decrypted
     DisplayDecoder dd3(bcdOutput[11:8], HEX2);
 
     // Encrypt
-    reg AESEncryptEnable = 1'b1;
-    AESEncrypt AESE(data, allKeys, tempEncryptedOutput, clk, AESEncryptEnable);
+    // reg AESEncryptEnable = 1'b1;
+    AESEncrypt AESE(data, allKeys, tempEncryptedOutput, clk);
 
     // Decrypt
     reg AESDecryptEnable = 1'b0;
-    AESDecrypt AESD(tempEncryptedOutput, allKeys, tempDecryptedOutput, clk, AESDecryptEnable);
+    AESDecrypt AESD(tempEncryptedOutput, allKeys, tempDecryptedOutput, clk,AESDecryptEnable);
 
-    reg [4:0] count = 0;
+    reg [5:0] count = 1;
+    // always @(posedge clk) begin
+    //     if (AESEncryptEnable || AESDecryptEnable)
+    //         count <= count + 1;
+    // end
+
     always @(posedge clk) begin
-        if (AESEncryptEnable == 1 || AESDecryptEnable == 1)
-            count <= count + 1;
-    end
-
-    always @(count) begin
         if (count < Nr + 1)
             bcdInput = tempEncryptedOutput[7:0];
-        else if (count == Nr + 1) begin
-            encryptedOutputReg = tempEncryptedOutput;
+        else if (count == Nr + 1 || count == Nr + 2) begin
             bcdInput = tempEncryptedOutput[7:0];
-            AESEncryptEnable = 1'b0;
             AESDecryptEnable = 1'b1;
         end
         else if (count < ((Nr + 1) * 2))
             bcdInput = tempDecryptedOutput[7:0];
         else if (count == ((Nr + 1) * 2)) begin
-            decryptedOutputReg = tempDecryptedOutput;
             bcdInput = tempDecryptedOutput[7:0];
             AESDecryptEnable = 1'b0;
         end
+		count <= count + 1;
     end
 endmodule
 

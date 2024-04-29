@@ -1,48 +1,35 @@
-
-module AESEncrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, out, clk, enable);
+module AESEncrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, clk);
 	input [127:0] data;
 	input [(11 * 128) - 1:0] allKeys;
 	input clk;
-	input enable;
-	output [127:0] out;
 
-	reg [127:0] state;
-	reg [127:0] keyReg;
-	reg [3:0] roundCount = 1;
-	wire [127:0] stateAfterLastRound;
-	wire [127:0] stateAfterKey;
-	wire [127:0] stateAfterRound;
-	wire [127:0] keyWire;
+	output reg [127:0] state = 0;
+	reg [3:0] roundCount = 0;
 
-	AddRoundKey a(state, keyReg, stateAfterKey);
-	EncryptRound round(state, keyReg, stateAfterRound);
-	LastEncryptRound lastRound(state, keyReg, stateAfterLastRound);
+	wire [127:0] subByteWire;
+	wire [127:0] shiftRowsWire;
+ 	wire [127:0] mixColumnsWire;
+ 	wire  [127:0] roundKeyInput;
+	wire [127:0] stateOut;
 
-	always @(data) begin
-		state = data;
-	end
+	SubBytes sub(state, subByteWire);
+	ShiftRows shft(subByteWire, shiftRowsWire);	
+	MixColumns mix(shiftRowsWire, mixColumnsWire);	
+	AddRoundKey addkey(roundKeyInput , allKeys[(128 * roundCount) - 1 -: 128], stateOut);
+	assign roundKeyInput = (roundCount == 1) ? data : 
+							(roundCount < Nr + 1) ? mixColumnsWire: shiftRowsWire;
 
-	always @(allKeys) begin
-		keyReg = allKeys[127:0];
-	end
-
-	assign out = state;
-
-	always @(posedge clk) begin
-		if (enable == 1) begin
-			if (roundCount == 1)
-				state <= stateAfterKey;
-			else if (roundCount < Nr + 1)
-				state <= stateAfterRound;
-			else if (roundCount == Nr + 1)
-				state <= stateAfterLastRound;
-
-			if (roundCount > 0 && roundCount < Nr + 1)
-				keyReg <= allKeys[(128 * (roundCount + 1)) - 1 -: 128];
-
-			if (roundCount < Nr + 2)
-				roundCount <= roundCount + 1;
-		end
+	always @(clk,data) begin
+			if (roundCount == 0) begin
+				state <= data;
+				roundCount <= 1;
+			end
+			if(clk)begin
+				if (roundCount <= Nr + 1)begin
+					state <= stateOut;				
+					roundCount <= roundCount + 1;
+				end
+			end
 	end
 endmodule
 

@@ -1,45 +1,36 @@
-module AESDecrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, out, clk, enable);
+module AESDecrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, clk, enable);
 	input [127:0] data;
 	input [(11 * 128) - 1:0] allKeys;
 	input clk;
 	input enable;
-	output [127:0] out;
-	
-	reg [127:0] state;
-	reg [127:0] keyReg; 
-	reg [3:0] roundCount = 1;
-	wire [127:0] stateAfterLastRound;
-	wire [127:0] stateAfterKey;
-	wire [127:0] stateAfterRound;
+	output reg [127:0] state;
+	reg [3:0] roundCount = 0;
+	wire [127:0] subByteWire;
+	wire [127:0] shiftRowsWire;
+	wire [127:0] mixColumnsWire;
+	wire [127:0] afterRoundKey;
+	wire [127:0] keyInput;
+	wire [127:0] stateOut;
 
-	AddRoundKey a(state, keyReg , stateAfterKey);
-	DecryptRound round(state , keyReg , stateAfterRound);
-	LastDecryptRound lastRound (state , keyReg , stateAfterLastRound);
+	InvShiftRows shft(state, shiftRowsWire);	
+	InvSubBytes sub(shiftRowsWire, subByteWire);
+	AddRoundKey addkey(keyInput, allKeys[((12 - roundCount) * 128 - 1) -: 128], afterRoundKey);
+	InvMixColumns mix(afterRoundKey, mixColumnsWire);	
+	assign keyInput = (roundCount == 1) ? data : subByteWire;
+	assign stateOut = (roundCount > 1 && roundCount < Nr + 1) ? mixColumnsWire : afterRoundKey;
 
-	always@(data)begin
-		state = data;
-	end
-	
-	always@(allKeys)begin
-		keyReg = allKeys[((11 * 128) - 1) -: 128] ;
-	end
-
-	assign out = state;
-
-	always @(posedge clk) begin
-		if (enable == 1) begin
-			if (roundCount == 1)
-				state <= stateAfterKey;
-			else if (roundCount < Nr +1)
-				state <= stateAfterRound;
-			else if (roundCount == Nr +1)
-				state <= stateAfterLastRound;
-
-			if (roundCount > 0 && roundCount < Nr + 1)
-				keyReg <= allKeys[((11 * 128) - roundCount * 128 - 1) -: 128];	
-
-			if (roundCount < Nr + 2)
-				roundCount <= roundCount + 1;
+	always @(clk,data) begin
+		if(enable)begin
+			if (roundCount == 0) begin
+				state <= data;	
+				roundCount <= 1;
+			end
+			if(clk)begin
+				if (roundCount <= Nr + 1)begin
+					state <= stateOut;				
+					roundCount <= roundCount + 1;
+				end
+			end
 		end
 	end
 endmodule

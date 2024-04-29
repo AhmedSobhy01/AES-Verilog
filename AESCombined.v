@@ -761,42 +761,42 @@ module InvMixColumns(stateIn, stateOut);
 	output [127:0] stateOut;
 	
 	// Function to multiply by 2 and fix the overflow
-	function [7:0] mul2(input [7:0] in, input integer n);
+	function [7:0] xtime(input [7:0] in, input integer n);
 		integer i;
 		begin
 			for(i = 0; i < n; i = i + 1)begin
 				if(in[7] == 1) in = (in << 1) ^ 8'h1B;
 				else in = in << 1;
 			end
-			mul2 = in;
+			xtime = in;
 		end
 	endfunction
 
 	function [7:0] mb0e; // Multiply by 0e
 	input [7:0] x;
 	begin
-		mb0e = mul2(x,3) ^ mul2(x,2)^ mul2(x,1);
+		mb0e = xtime(x,3) ^ xtime(x,2)^ xtime(x,1);
 	end
 	endfunction
 
 	function [7:0] mb0d; // Multiply by 0d
 	input [7:0] x;
 	begin
-		mb0d = mul2(x,3) ^ mul2(x,2) ^ x;
+		mb0d = xtime(x,3) ^ xtime(x,2) ^ x;
 	end
 	endfunction
 
 	function [7:0] mb0b;  // Multiply by 0b
 	input [7:0] x;
 	begin
-		mb0b = mul2(x,3) ^ mul2(x,1) ^ x;
+		mb0b = xtime(x,3) ^ xtime(x,1) ^ x;
 	end
 	endfunction
 
 	function [7:0] mb09; // Multiply by 09
 	input [7:0] x;
 	begin
-		mb09 = mul2(x,3) ^  x;
+		mb09 = xtime(x,3) ^  x;
 	end
 	endfunction
 	
@@ -817,21 +817,6 @@ module InvMixColumns(stateIn, stateOut);
 		end
 	endgenerate
 endmodule
-
-module EncryptRound(stateIn, key, stateOut);
-	input [127:0] stateIn;
-	input [127:0] key;
-	output [127:0] stateOut;
-
-	wire [127:0] subByteWire;
-	wire [127:0] shiftRowsWire;
-	wire [127:0] mixColumnsWire;
-
-	SubBytes sub(stateIn, subByteWire);
-	ShiftRows shft(subByteWire, shiftRowsWire);	
-	MixColumns mix(shiftRowsWire, mixColumnsWire);	
-	AddRoundKey addkey(mixColumnsWire, key, stateOut);
-endmodule 
 
 module DisplayDecoder(IN, out);
     input [3:0] IN;
@@ -855,20 +840,6 @@ module DisplayDecoder(IN, out);
         end
 endmodule
 
-module DecryptRound(stateIn, key, stateOut);
-	input [127:0] stateIn;
-	input [127:0] key;
-	output [127:0] stateOut;
-
-	wire [127:0] subByteWire;
-	wire [127:0] shiftRowsWire;
-	wire [127:0] afterRoundKey;
-
-	InvShiftRows shft(stateIn, shiftRowsWire);	
-	InvSubBytes sub(shiftRowsWire, subByteWire);
-	AddRoundKey addkey(subByteWire, key, afterRoundKey);
-	InvMixColumns mix(afterRoundKey, stateOut);	
-endmodule 
 
 module CondAdd3(in, out);
     input [3:0] in;
@@ -900,108 +871,76 @@ module AddRoundKey(state, roundKey, stateOut);
     assign stateOut= state ^ roundKey; 
 endmodule
 
-module LastEncryptRound(stateIn, key, stateOut);
-	input [127:0] stateIn;
-	input [127:0] key;
-	output [127:0] stateOut;
-
-	wire [127:0] subByteWire;
-	wire [127:0] shiftRowsWire;
-
-	SubBytes sub(stateIn, subByteWire);
-	ShiftRows shft(subByteWire, shiftRowsWire);	
-	AddRoundKey addkey(shiftRowsWire, key, stateOut);
-endmodule 
-
-module LastDecryptRound(stateIn, key, stateOut);
-	input [127:0] stateIn;
-	input [127:0] key;
-	output [127:0] stateOut;
-
-	wire [127:0] subByteWire;
-	wire [127:0] shiftRowsWire;
-
-	InvShiftRows shft(stateIn, shiftRowsWire);	
-	InvSubBytes sub(shiftRowsWire, subByteWire);
-	AddRoundKey addkey(subByteWire, key, stateOut);
-endmodule 
 
 module AESEncrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, clk);
 	input [127:0] data;
 	input [(11 * 128) - 1:0] allKeys;
 	input clk;
 
-	output reg [127:0] state;
-	reg [127:0] keyReg;
+	output reg [127:0] state = 0;
 	reg [3:0] roundCount = 0;
-	wire [127:0] stateAfterLastRound;
-	wire [127:0] stateAfterKey;
-	wire [127:0] stateAfterRound;
-	wire [127:0] keyWire;
 
-	AddRoundKey a(state, keyReg, stateAfterKey);
-	EncryptRound round(state, keyReg, stateAfterRound);
-	LastEncryptRound lastRound(state, keyReg, stateAfterLastRound);
+	wire [127:0] subByteWire;
+	wire [127:0] shiftRowsWire;
+ 	wire [127:0] mixColumnsWire;
+ 	wire  [127:0] roundKeyInput;
+	wire [127:0] stateOut;
 
+	SubBytes sub(state, subByteWire);
+	ShiftRows shft(subByteWire, shiftRowsWire);	
+	MixColumns mix(shiftRowsWire, mixColumnsWire);	
+	AddRoundKey addkey(roundKeyInput , allKeys[(128 * roundCount) - 1 -: 128], stateOut);
+	assign roundKeyInput = (roundCount == 1) ? data : 
+							(roundCount < Nr + 1) ? mixColumnsWire: shiftRowsWire;
 
-	always @(posedge clk) begin
+	always @(clk,data) begin
 			if (roundCount == 0) begin
-				keyReg = allKeys[127:0];
-				state = data;
+				state <= data;
+				roundCount <= 1;
 			end
-			else if (roundCount == 1)
-				state <= stateAfterKey;
-			else if (roundCount < Nr + 1)
-				state <= stateAfterRound;
-			else if (roundCount == Nr + 1)
-				state <= stateAfterLastRound;
-
-			if (roundCount > 0 && roundCount < Nr + 1)
-				keyReg <= allKeys[(128 * (roundCount + 1)) - 1 -: 128];
-
-			if (roundCount < Nr + 2)
-				roundCount <= roundCount + 1;
+			if(clk)begin
+				if (roundCount <= Nr + 1)begin
+					state <= stateOut;				
+					roundCount <= roundCount + 1;
+				end
+			end
 	end
 endmodule
 
-module AESDecrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, out, clk, enable);
+
+module AESDecrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, clk, enable);
 	input [127:0] data;
 	input [(11 * 128) - 1:0] allKeys;
 	input clk;
 	input enable;
-	output [127:0] out;
-	
-	reg [127:0] state;
-	reg [127:0] keyReg; 
+	output reg [127:0] state;
 	reg [3:0] roundCount = 0;
-	wire [127:0] stateAfterLastRound;
-	wire [127:0] stateAfterKey;
-	wire [127:0] stateAfterRound;
+	wire [127:0] subByteWire;
+	wire [127:0] shiftRowsWire;
+	wire [127:0] mixColumnsWire;
+	wire [127:0] afterRoundKey;
+	wire [127:0] keyInput;
+	wire [127:0] stateOut;
 
-	AddRoundKey a(state, keyReg , stateAfterKey);
-	DecryptRound round(state , keyReg , stateAfterRound);
-	LastDecryptRound lastRound (state , keyReg , stateAfterLastRound);
+	InvShiftRows shft(state, shiftRowsWire);	
+	InvSubBytes sub(shiftRowsWire, subByteWire);
+	AddRoundKey addkey(keyInput, allKeys[((12 - roundCount) * 128 - 1) -: 128], afterRoundKey);
+	InvMixColumns mix(afterRoundKey, mixColumnsWire);	
+	assign keyInput = (roundCount == 1) ? data : subByteWire;
+	assign stateOut = (roundCount > 1 && roundCount < Nr + 1) ? mixColumnsWire : afterRoundKey;
 
-	assign out = state;
-
-	always @(posedge clk) begin
-		if (enable) begin
+	always @(clk,data) begin
+		if(enable)begin
 			if (roundCount == 0) begin
-				keyReg = allKeys[((11 * 128) - 1) -: 128 ] ;
-				state = data;
+				state <= data;	
+				roundCount <= 1;
 			end
-			else if (roundCount == 1)
-				state <= stateAfterKey;
-			else if (roundCount < Nr +1)
-				state <= stateAfterRound;
-			else if (roundCount == Nr +1)
-				state <= stateAfterLastRound;
-
-			if (roundCount > 0 && roundCount < Nr + 1)
-				keyReg <= allKeys[((11 * 128) - roundCount * 128 - 1) -: 128 ];	
-
-			if (roundCount < Nr + 2)
-				roundCount <= roundCount + 1;
+			if(clk)begin
+				if (roundCount <= Nr + 1)begin
+					state <= stateOut;				
+					roundCount <= roundCount + 1;
+				end
+			end
 		end
 	end
 endmodule
@@ -1013,16 +952,7 @@ module AES (HEX0, HEX1, HEX2, clk);
     output [6:0] HEX0;
     output [6:0] HEX1;
     output [6:0] HEX2;
-
-	// Binary2BCD b2b({11'b0,clk}, bcdOutput);
-
-	// // 7-Segment Logic
-	// DisplayDecoder dd1(bcdOutput[3:0], HEX0);
-    // DisplayDecoder dd2(bcdOutput[7:4], HEX1);
-    // DisplayDecoder dd3(bcdOutput[11:8], HEX2);
-
-
-
+	
     // Key
     wire [127:0] key = 128'h00_01_02_03_04_05_06_07_08_09_0a_0b_0c_0d_0e_0f;
 
@@ -1048,32 +978,61 @@ module AES (HEX0, HEX1, HEX2, clk);
     DisplayDecoder dd3(bcdOutput[11:8], HEX2);
 
     // Encrypt
-    reg AESEncryptEnable = 1'b1;
+    // reg AESEncryptEnable = 1'b1;
     AESEncrypt AESE(data, allKeys, tempEncryptedOutput, clk);
 
     // Decrypt
     reg AESDecryptEnable = 1'b0;
     AESDecrypt AESD(tempEncryptedOutput, allKeys, tempDecryptedOutput, clk,AESDecryptEnable);
 
-    reg [4:0] count = 0;
-    always @(posedge clk) begin
-        if (AESEncryptEnable || AESDecryptEnable)
-            count <= count + 1;
-    end
+    reg [5:0] count = 1;
+    // always @(posedge clk) begin
+    //     if (AESEncryptEnable || AESDecryptEnable)
+    //         count <= count + 1;
+    // end
 
     always @(posedge clk) begin
-        if (count < Nr + 2)
+        if (count < Nr + 1)
             bcdInput = tempEncryptedOutput[7:0];
-        else if (count == Nr + 2) begin
+        else if (count == Nr + 1 || count == Nr + 2) begin
             bcdInput = tempEncryptedOutput[7:0];
-            AESEncryptEnable = 1'b0;
             AESDecryptEnable = 1'b1;
         end
-        else if (count < ((Nr + 2) * 2) + 1)
+        else if (count < ((Nr + 1) * 2))
             bcdInput = tempDecryptedOutput[7:0];
-        else if (count == ((Nr + 2) * 2) + 1) begin
+        else if (count == ((Nr + 1) * 2)) begin
             bcdInput = tempDecryptedOutput[7:0];
             AESDecryptEnable = 1'b0;
         end
+		count <= count + 1;
     end
 endmodule
+
+
+
+
+module Encrypt_DUT();
+	reg clk;
+	wire [127:0] key = 128'h00_01_02_03_04_05_06_07_08_09_0a_0b_0c_0d_0e_0f;
+	wire [127:0] data = 128'h00_11_22_33_44_55_66_77_88_99_aa_bb_cc_dd_ee_ff;
+	wire [127:0] out;
+	wire [127:0] encrypted;
+	reg [4:0]counter = 1;
+	reg enabled = 1'b0;
+	wire [(11 * 128) - 1:0] allKeys;
+    KeyExpansion keysGetter(key, allKeys);
+	AESEncrypt enc(data,allKeys,encrypted,clk);
+	AESDecrypt dec(encrypted,allKeys,out,clk,enabled);
+	initial begin
+		clk = 0;
+	forever	#5 clk = ~clk;
+	end
+
+	always@(posedge clk)begin
+		counter <=counter + 1;
+		if(counter == 11)
+			enabled = 1'b1;
+	end
+
+endmodule
+
