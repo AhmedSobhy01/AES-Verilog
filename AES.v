@@ -21,7 +21,7 @@ module AES (HEX0, HEX1, HEX2, clk);
     wire [127:0] tempDecryptedOutput;
 	
     // Binary to BCD Logic
-    reg [7:0] bcdInput = 8'b00000000;
+    wire [7:0] bcdInput = 8'b00000000;
     wire [11:0] bcdOutput;
 	Binary2BCD b2b(bcdInput, bcdOutput);
 
@@ -44,17 +44,13 @@ module AES (HEX0, HEX1, HEX2, clk);
     //         count <= count + 1;
     // end
 
+    assign bcdInput = (count <= Nr + 2) ? tempEncryptedOutput[7:0] : tempDecryptedOutput[7:0];
+
     always @(posedge clk) begin
-        if (count < Nr + 1)
-            bcdInput = tempEncryptedOutput[7:0];
-        else if (count == Nr + 1 || count == Nr + 2) begin
-            bcdInput = tempEncryptedOutput[7:0];
+        if (count == Nr + 1) begin
             AESDecryptEnable = 1'b1;
         end
-        else if (count < ((Nr + 1) * 2))
-            bcdInput = tempDecryptedOutput[7:0];
         else if (count == ((Nr + 1) * 2)) begin
-            bcdInput = tempDecryptedOutput[7:0];
             AESDecryptEnable = 1'b0;
         end
 		count <= count + 1;
@@ -67,7 +63,7 @@ module AES_DUT();
     wire [127:0] decrypted;
     wire [6:0] HEX0, HEX1, HEX2;
 
-    AES AES(encrypted, decrypted, HEX0, HEX1, HEX2, clk);
+    AES AES(HEX0, HEX1, HEX2, clk);
 
     reg [4:0] count = 5'b00000;
     initial begin

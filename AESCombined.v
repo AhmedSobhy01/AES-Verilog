@@ -968,7 +968,7 @@ module AES (HEX0, HEX1, HEX2, clk);
     wire [127:0] tempDecryptedOutput;
 	
     // Binary to BCD Logic
-    reg [7:0] bcdInput = 8'b00000000;
+    wire [7:0] bcdInput;
     wire [11:0] bcdOutput;
 	Binary2BCD b2b(bcdInput, bcdOutput);
 
@@ -991,17 +991,13 @@ module AES (HEX0, HEX1, HEX2, clk);
     //         count <= count + 1;
     // end
 
+	assign bcdInput = (count <= Nr + 2) ? tempEncryptedOutput[7:0] : tempDecryptedOutput[7:0];
+
     always @(posedge clk) begin
-        if (count < Nr + 1)
-            bcdInput = tempEncryptedOutput[7:0];
-        else if (count == Nr + 1 || count == Nr + 2) begin
-            bcdInput = tempEncryptedOutput[7:0];
+        if (count == Nr + 1) begin
             AESDecryptEnable = 1'b1;
         end
-        else if (count < ((Nr + 1) * 2))
-            bcdInput = tempDecryptedOutput[7:0];
         else if (count == ((Nr + 1) * 2)) begin
-            bcdInput = tempDecryptedOutput[7:0];
             AESDecryptEnable = 1'b0;
         end
 		count <= count + 1;
@@ -1011,28 +1007,28 @@ endmodule
 
 
 
-module Encrypt_DUT();
-	reg clk;
-	wire [127:0] key = 128'h00_01_02_03_04_05_06_07_08_09_0a_0b_0c_0d_0e_0f;
-	wire [127:0] data = 128'h00_11_22_33_44_55_66_77_88_99_aa_bb_cc_dd_ee_ff;
-	wire [127:0] out;
-	wire [127:0] encrypted;
-	reg [4:0]counter = 1;
-	reg enabled = 1'b0;
-	wire [(11 * 128) - 1:0] allKeys;
-    KeyExpansion keysGetter(key, allKeys);
-	AESEncrypt enc(data,allKeys,encrypted,clk);
-	AESDecrypt dec(encrypted,allKeys,out,clk,enabled);
-	initial begin
-		clk = 0;
-	forever	#5 clk = ~clk;
-	end
+// module Encrypt_DUT();
+// 	reg clk;
+// 	wire [127:0] key = 128'h00_01_02_03_04_05_06_07_08_09_0a_0b_0c_0d_0e_0f;
+// 	wire [127:0] data = 128'h00_11_22_33_44_55_66_77_88_99_aa_bb_cc_dd_ee_ff;
+// 	wire [127:0] out;
+// 	wire [127:0] encrypted;
+// 	reg [4:0]counter = 1;
+// 	reg enabled = 1'b0;
+// 	wire [(11 * 128) - 1:0] allKeys;
+//     KeyExpansion keysGetter(key, allKeys);
+// 	AESEncrypt enc(data,allKeys,encrypted,clk);
+// 	AESDecrypt dec(encrypted,allKeys,out,clk,enabled);
+// 	initial begin
+// 		clk = 0;
+// 	forever	#5 clk = ~clk;
+// 	end
 
-	always@(posedge clk)begin
-		counter <=counter + 1;
-		if(counter == 11)
-			enabled = 1'b1;
-	end
+// 	always@(posedge clk)begin
+// 		counter <=counter + 1;
+// 		if(counter == 11)
+// 			enabled = 1'b1;
+// 	end
 
-endmodule
+// endmodule
 
