@@ -23,10 +23,10 @@ module AESDecrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, out, cl
 	always@(allKeys)begin
 		keyReg = allKeys[127:0];
 	end
-
+  
 	assign out = state;
 
-	always @(posedge clk) begin
+  always @(posedge clk) begin
 		if (enable == 1) begin
 			if (roundCount == 1)
 				state <= stateAfterKey;

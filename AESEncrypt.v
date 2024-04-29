@@ -7,7 +7,7 @@ module AESEncrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, out, cl
 
 	reg [127:0] state;
 	reg [127:0] keyReg;
-	reg [4:0] roundCount = 0;
+  reg [4:0] roundCount = 1;
 	wire [127:0] stateAfterLastRound;
 	wire [127:0] stateAfterKey;
 	wire [127:0] stateAfterRound;
@@ -15,12 +15,19 @@ module AESEncrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, out, cl
 	AddRoundKey a(state, keyReg, stateAfterKey);
 	EncryptRound round(state, keyReg, stateAfterRound);
 	LastEncryptRound lastRound(state, keyReg, stateAfterLastRound);
+  
+  always@(data)begin
+		state = data;
+	end
+	
+	always@(allKeys)begin
+		keyReg = allKeys[((Nr + 1) * 128) - 1 -: 128];
+	end
 
 	assign out = state;
 
-	always @(clk) begin
+  always @(posedge clk) begin
 		if (enable) begin
-			if (clk) begin
 				if (roundCount == 1)
 					state <= stateAfterKey;
 				else if (roundCount < Nr + 1)
@@ -33,11 +40,6 @@ module AESEncrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, out, cl
 
 				if (roundCount < Nr + 2)
 					roundCount <= roundCount + 1;
-			end
-			else if (roundCount == 0) begin
-				state <= data;
-				keyReg <= allKeys[((Nr + 1) * 128) - 1 -: 128];
-				roundCount <= 1;
 			end
 		end
 	end
