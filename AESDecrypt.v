@@ -1,44 +1,49 @@
-module AESDecrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, out, clk, enable);
+module AESDecrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, clk, enable, reset);
 	input [127:0] data;
 	input [(11 * 128) - 1:0] allKeys;
 	input clk;
 	input enable;
-	output [127:0] out;
+	input reset;
+	output reg [127:0] state; // Holds the state of the AES decryption
+
+	reg [5:0] roundCount = 0; // Holds the current round count
+
+	wire [127:0] subByteWire;
+	wire [127:0] shiftRowsWire;
+	wire [127:0] mixColumnsWire;
+	wire [127:0] afterRoundKey;
+	wire [127:0] keyInput;
+	wire [127:0] stateOut;
+
+	// Instantiate AES modules needed for decryption
+	InvShiftRows shft(state, shiftRowsWire);	
+	InvSubBytes sub(shiftRowsWire, subByteWire);
+	AddRoundKey addkey(keyInput, allKeys[((12 - roundCount) * 128 - 1) -: 128], afterRoundKey);
+	InvMixColumns mix(afterRoundKey, mixColumnsWire);
+
+	// Assign keyInput based on roundCount
+	// roundCount = 1 -> Data
+	// roundCount = 2 to Nr -> subByteWire
+	assign keyInput = (roundCount == 1) ? data : subByteWire;
+
+	// Assign stateOut based on roundCount
+	// roundCount = 1 -> afterRoundKey
+	// roundCount = 2 to Nr -> mixColumnsWire
+	assign stateOut = (roundCount > 1 && roundCount < Nr + 1) ? mixColumnsWire : afterRoundKey;
 	
-	reg [127:0] state;
-	reg [127:0] keyReg; 
-	reg [3:0] roundCount = 0;
-	wire [127:0] stateAfterLastRound;
-	wire [127:0] stateAfterKey;
-	wire [127:0] stateAfterRound;
+	// Assign state to data on data change and reset roundCount
+	initial @(data) begin 
+		state = data;
+		roundCount = 1;
+	end
 
-	AddRoundKey a(state, keyReg , stateAfterKey);
-	DecryptRound round(state , keyReg , stateAfterRound);
-	LastDecryptRound lastRound (state , keyReg , stateAfterLastRound);
-
-	assign out = state;
-
-	always @(clk) begin
-		if (enable == 1) begin
-			if (clk) begin
-				if (roundCount == 1)
-					state <= stateAfterKey;
-				else if (roundCount < Nr +1)
-					state <= stateAfterRound;
-				else if (roundCount == Nr +1)
-					state <= stateAfterLastRound;
-
-				if (roundCount > 0 && roundCount < Nr + 1)
-					keyReg <= allKeys[((11 * 128) - roundCount * 128 - 1) -: 128];	
-
-				if (roundCount < Nr + 2)
-					roundCount <= roundCount + 1;
-			end
-			else if (roundCount == 0) begin
-				state <= data;
-				keyReg <= allKeys[((11 * 128) - 1) -: 128];
-				roundCount <= 1;
-			end
+	// Update state based on roundCount
+	always @(negedge clk) begin
+		if (reset)
+			roundCount = 1;
+		else if (enable && roundCount <= Nr + 1) begin
+			state = stateOut;				
+			roundCount = roundCount + 6'b000001;
 		end
 	end
 endmodule
@@ -51,7 +56,7 @@ module AESDecrypt_DUT();
 	reg clk;
 
 	KeyExpansion ke(key, allKeys);
-	AESDecrypt aes(data, allKeys, out, clk, 1);
+	AESDecrypt aes(data, allKeys, out, clk, 1, 0);
 
 	initial begin
 		clk = 0;
