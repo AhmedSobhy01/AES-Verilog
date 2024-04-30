@@ -3,7 +3,7 @@ module CondAdd3(in, out);
     input [3:0] in;
     output [3:0] out;
 
-    assign out = in >= 5 ? in + 3:in;
+    assign out = in >= 5 ? in + 4'b0011 : in;
 endmodule
 
 module Binary2BCD(in, out);
