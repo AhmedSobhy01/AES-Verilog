@@ -872,10 +872,11 @@ module AddRoundKey(state, roundKey, stateOut);
 endmodule
 
 
-module AESEncrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, clk);
+module AESEncrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, clk,reset);
 	input [127:0] data;
 	input [(11 * 128) - 1:0] allKeys;
 	input clk;
+	input reset;
 
 	output reg [127:0] state = 0;
 	reg [3:0] roundCount = 0;
@@ -892,27 +893,31 @@ module AESEncrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, 
 	AddRoundKey addkey(roundKeyInput , allKeys[(128 * roundCount) - 1 -: 128], stateOut);
 	assign roundKeyInput = (roundCount == 1) ? data : 
 							(roundCount < Nr + 1) ? mixColumnsWire: shiftRowsWire;
-
-	always @(clk,data) begin
-			if (roundCount == 0) begin
-				state <= data;
-				roundCount <= 1;
-			end
-			if(clk)begin
-				if (roundCount <= Nr + 1)begin
-					state <= stateOut;				
-					roundCount <= roundCount + 1;
-				end
-			end
+	initial begin
+		@(data)begin 
+			state = data;
+			roundCount = 1;
+		end
+	end
+	always @(negedge clk) begin
+		if(reset)begin
+			state = data;
+			roundCount = 1;
+		end 
+		else if (roundCount <= Nr + 1)begin
+			state = stateOut;				
+			roundCount = roundCount + 1;
+		end
 	end
 endmodule
 
 
-module AESDecrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, clk, enable);
+module AESDecrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, clk, enable,reset);
 	input [127:0] data;
 	input [(11 * 128) - 1:0] allKeys;
 	input clk;
 	input enable;
+	input reset;
 	output reg [127:0] state;
 	reg [3:0] roundCount = 0;
 	wire [127:0] subByteWire;
@@ -928,27 +933,31 @@ module AESDecrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, 
 	InvMixColumns mix(afterRoundKey, mixColumnsWire);	
 	assign keyInput = (roundCount == 1) ? data : subByteWire;
 	assign stateOut = (roundCount > 1 && roundCount < Nr + 1) ? mixColumnsWire : afterRoundKey;
-
-	always @(clk,data) begin
-		if(enable)begin
-			if (roundCount == 0) begin
-				state <= data;	
-				roundCount <= 1;
-			end
-			if(clk)begin
-				if (roundCount <= Nr + 1)begin
-					state <= stateOut;				
-					roundCount <= roundCount + 1;
-				end
-			end
+	
+	initial begin
+		@(data)begin 
+			state = data;
+			roundCount = 1;
 		end
+	end
+	always @(negedge clk) begin
+		if(reset)begin
+			roundCount = 1;
+		end 
+		 else if (enable)
+			if (roundCount <= Nr + 1)begin
+				state = stateOut;				
+				roundCount = roundCount + 1;
+			end
 	end
 endmodule
 
-module AES (HEX0, HEX1, HEX2, clk);
+module AES (LED,HEX0, HEX1, HEX2, clk,reset);
 	localparam Nk =4;
 	localparam Nr = 10;
     input clk;
+	input reset;
+    output LED;
     output [6:0] HEX0;
     output [6:0] HEX1;
     output [6:0] HEX2;
@@ -979,56 +988,39 @@ module AES (HEX0, HEX1, HEX2, clk);
 
     // Encrypt
     // reg AESEncryptEnable = 1'b1;
-    AESEncrypt AESE(data, allKeys, tempEncryptedOutput, clk);
+    AESEncrypt AESE(data, allKeys, tempEncryptedOutput, clk,reset);
 
     // Decrypt
     reg AESDecryptEnable = 1'b0;
-    AESDecrypt AESD(tempEncryptedOutput, allKeys, tempDecryptedOutput, clk,AESDecryptEnable);
+    AESDecrypt AESD(tempEncryptedOutput, allKeys, tempDecryptedOutput, clk, AESDecryptEnable,reset);
 
-    reg [5:0] count = 1;
-    // always @(posedge clk) begin
-    //     if (AESEncryptEnable || AESDecryptEnable)
-    //         count <= count + 1;
-    // end
+    reg [5:0] count;
+	initial begin
+		count = 0;
+	end
 
-	assign bcdInput = (count <= Nr + 2) ? tempEncryptedOutput[7:0] : tempDecryptedOutput[7:0];
+	assign bcdInput = (count == 0) ? data[7:0] : (count <= Nr + 1) ? tempEncryptedOutput[7:0] : tempDecryptedOutput[7:0];
 
-    always @(posedge clk) begin
-        if (count == Nr + 1) begin
-            AESDecryptEnable = 1'b1;
-        end
-        else if (count == ((Nr + 1) * 2)) begin
-            AESDecryptEnable = 1'b0;
-        end
-		count <= count + 1;
+    assign LED = (tempDecryptedOutput == data && count > Nr + 1);
+
+
+    always @(negedge clk) begin
+		if(reset)begin
+			count = 0;
+			AESDecryptEnable = 1'b0;
+		end
+		else begin
+			if (count == Nr) begin
+				AESDecryptEnable = 1'b1;
+			end
+			else if (count == ((Nr + 1) * 2)) begin
+				AESDecryptEnable = 1'b0;
+			end
+			count <= count + 1;
+		end
+    
     end
 endmodule
 
 
-
-
-// module Encrypt_DUT();
-// 	reg clk;
-// 	wire [127:0] key = 128'h00_01_02_03_04_05_06_07_08_09_0a_0b_0c_0d_0e_0f;
-// 	wire [127:0] data = 128'h00_11_22_33_44_55_66_77_88_99_aa_bb_cc_dd_ee_ff;
-// 	wire [127:0] out;
-// 	wire [127:0] encrypted;
-// 	reg [4:0]counter = 1;
-// 	reg enabled = 1'b0;
-// 	wire [(11 * 128) - 1:0] allKeys;
-//     KeyExpansion keysGetter(key, allKeys);
-// 	AESEncrypt enc(data,allKeys,encrypted,clk);
-// 	AESDecrypt dec(encrypted,allKeys,out,clk,enabled);
-// 	initial begin
-// 		clk = 0;
-// 	forever	#5 clk = ~clk;
-// 	end
-
-// 	always@(posedge clk)begin
-// 		counter <=counter + 1;
-// 		if(counter == 11)
-// 			enabled = 1'b1;
-// 	end
-
-// endmodule
 
