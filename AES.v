@@ -1,95 +1,141 @@
-module AES (encryptedOutputReg, decryptedOutputReg, HEX0, HEX1, HEX2, clk);
-    localparam Nk = 4;
-    localparam Nr = 10;
-
+module AES(LED, HEX0, HEX1, HEX2, sel, clk);
+    input [1:0] sel;
     input clk;
+    output LED;
     output [6:0] HEX0;
     output [6:0] HEX1;
     output [6:0] HEX2;
 
-    output reg [127:0] encryptedOutputReg = 128'h00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00;
-    output reg [127:0] decryptedOutputReg = 128'h00_00_00_00_00_00_00_00_00_00_00_00_00_00_00_00;
+    // Keys
+    wire [127:0] key128 = 128'h000102030405060708090a0b0c0d0e0f;
+    wire [191:0] key192 = 192'h000102030405060708090a0b0c0d0e0f1011121314151617;
+    wire [255:0] key256 = 256'h000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f;
 
-    // Key
-    wire [127:0] key = 128'h000102030405060708090a0b0c0d0e0f;
-    // wire [191:0] 192key = 192'h000102030405060708090a0b0c0d0e0f1011121314151617;
-    // wire [255:0] 256key = 256'h000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f;
-
-    // Key Expansion
-    wire [((Nr + 1) * 128) - 1:0] allKeys;
-    KeyExpansion #(Nk, Nr) keysGetter(key, allKeys);
+    // Nr / Nk
+    wire [3:0] Nr = sel == 0 ? 10 : sel == 1 ? 12 : 14;
+    wire [3:0] Nk = sel == 0 ? 4 : sel == 1 ? 6 : 8;
 
     // Data
     wire [127:0] data = 128'h00_11_22_33_44_55_66_77_88_99_aa_bb_cc_dd_ee_ff;
 
-    // AES
-    wire [127:0] tempEncryptedOutput;
-    wire [127:0] tempDecryptedOutput;
-	
+    // Current round count for encryption and decryption
+    reg [5:0] count = 0;
+
+    // AES Decrypt Enable
+    reg AESDecryptEnable = 1'b0;
+
+    // 128-bit AES
+    wire aesReset128 = sel == 0 ? 1'b0 : 1'b1;
+    wire [127:0] tempEncryptedOutput128;
+    wire [127:0] tempDecryptedOutput128;
+    wire [1407:0] allKeys128;
+
+    KeyExpansion #(4, 10) keysGetter128(key128, allKeys128);
+    AESEncrypt #(4, 10) aese128(data, allKeys128, tempEncryptedOutput128, clk, aesReset128);
+    AESDecrypt #(4, 10) aesd128(tempEncryptedOutput128, allKeys128, tempDecryptedOutput128, clk, AESDecryptEnable, aesReset128);
+
+    // 192-bit AES
+    wire aesReset192 = sel == 1 ? 1'b0 : 1'b1;
+    wire [127:0] tempEncryptedOutput192;
+    wire [127:0] tempDecryptedOutput192;
+    wire [1663:0] allKeys192;
+
+    KeyExpansion #(6, 12) keysGetter192(key192, allKeys192);
+    AESEncrypt #(6, 12) aese192(data, allKeys192, tempEncryptedOutput192, clk, aesReset192);
+    AESDecrypt #(6, 12) aesd192(tempEncryptedOutput192, allKeys192, tempDecryptedOutput192, clk, AESDecryptEnable, aesReset192);
+
+    // 256-bit AES
+    wire aesReset256 = (sel == 2 || sel == 3) ? 1'b0 : 1'b1;
+    wire [127:0] tempEncryptedOutput256;
+    wire [127:0] tempDecryptedOutput256;
+    wire [1919:0] allKeys256;
+
+    KeyExpansion #(8, 14) keysGetter(key256, allKeys256);
+    AESEncrypt #(8, 14) aese256(data, allKeys256, tempEncryptedOutput256, clk, aesReset256);
+    AESDecrypt #(8, 14) aesd256(tempEncryptedOutput256, allKeys256, tempDecryptedOutput256, clk, AESDecryptEnable, aesReset256);
+
+    // Encrypted and Decrypted Data
+    wire [127:0] tempEncryptedOutput = sel == 0 ? tempEncryptedOutput128 : sel == 1 ? tempEncryptedOutput192 : tempEncryptedOutput256;
+    wire [127:0] tempDecryptedOutput = sel == 0 ? tempDecryptedOutput128 : sel == 1 ? tempDecryptedOutput192 : tempDecryptedOutput256;
+
+    // Assign bcdInput based on count
+    // count = 0 -> Encrypted Data
+    // count = 1 to Nr -> Encrypted Data
+    // count = Nr + 2 -> Decrypted Data
+    wire [7:0] bcdInput = (count == 0) ? data[7:0] : (count <= Nr + 1) ? tempEncryptedOutput[7:0] : tempDecryptedOutput[7:0];
+
     // Binary to BCD Logic
-    reg [7:0] bcdInput = 8'b00000000;
     wire [11:0] bcdOutput;
 	Binary2BCD b2b(bcdInput, bcdOutput);
 
-	// 7-Segment Logic
+    // 7-Segment Logic
 	DisplayDecoder dd1(bcdOutput[3:0], HEX0);
     DisplayDecoder dd2(bcdOutput[7:4], HEX1);
     DisplayDecoder dd3(bcdOutput[11:8], HEX2);
 
-    // Encrypt
-    reg AESEncryptEnable = 1'b1;
-    AESEncrypt #(Nk, Nr) AESE128(data, allKeys, tempEncryptedOutput, clk, AESEncryptEnable);
+    // LED = 1 if Decrypted Data is same as original data
+    assign LED = (tempDecryptedOutput == data && count > Nr + 1);
 
-    // Decrypt
-    reg AESDecryptEnable = 1'b0;
-    AESDecrypt #(Nk, Nr) AESD(tempEncryptedOutput, allKeys, tempDecryptedOutput, clk, AESDecryptEnable);
+    // Previous Selection
+    reg [1:0] prevSel;
 
-    reg [4:0] count = 0;
-    always @(posedge clk) begin
-        if (AESEncryptEnable == 1 || AESDecryptEnable == 1)
-            count <= count + 1;
-    end
-
-    always @(count) begin
-        if (count < Nr + 1)
-            bcdInput = tempEncryptedOutput[7:0];
-        else if (count == Nr + 1) begin
-            encryptedOutputReg = tempEncryptedOutput;
-            bcdInput = tempEncryptedOutput[7:0];
-            AESEncryptEnable = 1'b0;
-            AESDecryptEnable = 1'b1;
-        end
-        else if (count < ((Nr + 1) * 2))
-            bcdInput = tempDecryptedOutput[7:0];
-        else if (count == ((Nr + 1) * 2)) begin
-            decryptedOutputReg = tempDecryptedOutput;
-            bcdInput = tempDecryptedOutput[7:0];
+    always @(negedge clk) begin
+        if (count == 0 || sel != prevSel) begin
+            count = 0;
             AESDecryptEnable = 1'b0;
+            prevSel = sel;
         end
+
+        if (count == Nr)
+            AESDecryptEnable = 1'b1;
+        else if (count == ((Nr + 1) * 2))
+            AESDecryptEnable = 1'b0;
+
+        if (count <= (Nr + 1) * 2)
+            count <= count + 6'b000001;
     end
 endmodule
 
-module AES_DUT();
-    reg clk = 1'b0;
-    wire [127:0] encrypted;
-    wire [127:0] decrypted;
+module AES128_DUT();
+    reg [1:0] sel = 2'b00;
+    reg clk = 1'b1;
+    wire LED;
     wire [6:0] HEX0, HEX1, HEX2;
 
-    AES aes(encrypted, decrypted, HEX0, HEX1, HEX2, clk);
+    AES aes(LED, HEX0, HEX1, HEX2, sel, clk);
 
-    reg [4:0] count = 5'b00000;
+    integer count = 0;
     initial begin
-        clk = 0;
+        clk = 1'b1;
+
         forever begin
             #10 clk = ~clk;
-            if (clk)
-                count = count + 1;
+            if (!clk) begin
+                if (count < 80)
+                    count = count + 1;
+                
+                $display("Current Round Count: %0d, LED Status: %b, Encrypted State: %h (%0d), Decrypted State: %h (%0d)", count, LED, aes.tempEncryptedOutput, aes.tempEncryptedOutput[7:0], aes.tempDecryptedOutput, aes.tempDecryptedOutput[7:0]);
+
+                if (count == 23) begin
+                    $display("==============================================");
+                    $display("Switching to 192-bit AES Encryption and Decryption");
+                    $display("==============================================");
+                    sel = 2'b01;
+                end
+                else if (count == 50) begin
+                    $display("==============================================");
+                    $display("Switching to 256-bit AES Encryption and Decryption");
+                    $display("==============================================");
+                    sel = 2'b10;
+                end
+            end
         end
     end
 
     initial begin
         $display("AES Encryption and Decryption");
         $display("================================");
-        $monitor("Encrypted: %h, Decrypted: %h, Count: %d", encrypted, decrypted, count);
+        $display("128-bit AES Encryption and Decryption");
+        $display("================================");
     end
 endmodule
