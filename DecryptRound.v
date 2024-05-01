@@ -7,10 +7,10 @@ module DecryptRound(stateIn, key, stateOut);
 	wire [127:0] shiftRowsWire;
 	wire [127:0] afterRoundKey;
 
-	InvShiftRows shft(stateIn, shiftRowsWire);	
+	InvShiftRows shft(stateIn, shiftRowsWire);
 	InvSubBytes sub(shiftRowsWire, subByteWire);
 	AddRoundKey addkey(subByteWire, key, afterRoundKey);
-	InvMixColumns mix(afterRoundKey, stateOut);	
+	InvMixColumns mix(afterRoundKey, stateOut);
 endmodule 
 
 module LastDecryptRound(stateIn, key, stateOut);
@@ -21,7 +21,7 @@ module LastDecryptRound(stateIn, key, stateOut);
 	wire [127:0] subByteWire;
 	wire [127:0] shiftRowsWire;
 
-	InvShiftRows shft(stateIn, shiftRowsWire);	
+	InvShiftRows shft(stateIn, shiftRowsWire);
 	InvSubBytes sub(shiftRowsWire, subByteWire);
 	AddRoundKey addkey(subByteWire, key, stateOut);
 endmodule 
