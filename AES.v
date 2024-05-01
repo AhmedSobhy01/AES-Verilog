@@ -1,13 +1,10 @@
 module AES(LED, HEX0, HEX1, HEX2, sel, clk);
-    input [1:0] sel;
+    input [1:0] sel; // 00 -> 128-bit AES, 01 -> 192-bit AES, 10/11 -> 256-bit AES
     input clk;
     output LED;
     output [6:0] HEX0;
     output [6:0] HEX1;
     output [6:0] HEX2;
-    // Sel  00 128 
-    // Sel  01 192
-    // Sel  11  10    256
 
     // Keys
     wire [127:0] key128 = 128'h000102030405060708090a0b0c0d0e0f;
@@ -64,7 +61,7 @@ module AES(LED, HEX0, HEX1, HEX2, sel, clk);
     wire [127:0] tempDecryptedOutput = selReg == 0 ? tempDecryptedOutput128 : selReg == 1 ? tempDecryptedOutput192 : tempDecryptedOutput256;
 
     // Assign bcdInput based on count
-    // count = 0 -> Encrypted Data
+    // count = 0 -> Original Data
     // count = 1 to Nr -> Encrypted Data
     // count = Nr + 2 -> Decrypted Data
     wire [7:0] bcdInput = (count == 0) ? data[7:0] : (count <= Nr + 1) ? tempEncryptedOutput[7:0] : tempDecryptedOutput[7:0];
