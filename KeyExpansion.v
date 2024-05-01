@@ -27,21 +27,25 @@ module KeyExpansionRound #(parameter Nk = 4, parameter Nr = 10) (roundCount, key
         end
     endgenerate
 
-
-    // Function to multiply by 2 and fix the overflow
-	function [7:0] mul2(input [7:0] in, input integer n);
-		integer i;
-		begin
-			for(i = 0; i < n; i = i + 1) begin: Mul2Loop
-				if(in[7] == 1) in = (in << 1) ^ 8'h1B;
-				else in = in << 1;
-			end
-			mul2 = in;
-		end
-	endfunction
-
     // Perform the XOR operation with the round constant (roundConstant)
-    wire [31:0] roundConstant = {mul2(1, roundCount - 1), 8'h00, 8'h00, 8'h00};
+    wire [7:0] roundConstantStart = roundCount == 1 ? 8'h01
+                                        : roundCount == 2 ? 8'h02
+                                        : roundCount == 3 ? 8'h04
+                                        : roundCount == 4 ? 8'h08
+                                        : roundCount == 5 ? 8'h10
+                                        : roundCount == 6 ? 8'h20
+                                        : roundCount == 7 ? 8'h40
+                                        : roundCount == 8 ? 8'h80
+                                        : roundCount == 9 ? 8'h1b
+                                        : roundCount == 10 ? 8'h36
+                                        : roundCount == 11 ? 8'h6c
+                                        : roundCount == 12 ? 8'hd8
+                                        : roundCount == 13 ? 8'hab
+                                        : roundCount == 14 ? 8'h4d
+                                        : roundCount == 15 ? 8'h9a
+                                        : roundCount == 16 ? 8'h2f
+                                        : 8'h00;
+    wire [31:0] roundConstant = {roundConstantStart, 24'h00};
 
     assign keyOut[32 * Nk - 1 -: 32] = words[0] ^ w3Sub ^ roundConstant; // XOR the first word with the round constant
 

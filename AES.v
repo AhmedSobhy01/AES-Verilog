@@ -12,8 +12,7 @@ module AES(LED, HEX0, HEX1, HEX2, sel, clk);
     wire [255:0] key256 = 256'h000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f;
 
     // Nr / Nk
-    wire [3:0] Nr = sel == 0 ? 10 : sel == 1 ? 12 : 14;
-    wire [3:0] Nk = sel == 0 ? 4 : sel == 1 ? 6 : 8;
+    wire [3:0] Nr = sel == 0 ? 4'b1010 : sel == 1 ? 4'b1100 : 4'b1110;
 
     // Data
     wire [127:0] data = 128'h00_11_22_33_44_55_66_77_88_99_aa_bb_cc_dd_ee_ff;
@@ -96,7 +95,7 @@ module AES(LED, HEX0, HEX1, HEX2, sel, clk);
     end
 endmodule
 
-module AES128_DUT();
+module AES_DUT();
     reg [1:0] sel = 2'b00;
     reg clk = 1'b1;
     wire LED;
