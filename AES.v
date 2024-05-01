@@ -5,6 +5,9 @@ module AES(LED, HEX0, HEX1, HEX2, sel, clk);
     output [6:0] HEX0;
     output [6:0] HEX1;
     output [6:0] HEX2;
+    // Sel  00 128 
+    // Sel  01 192
+    // Sel  11  10    256
 
     // Keys
     wire [127:0] key128 = 128'h000102030405060708090a0b0c0d0e0f;
@@ -23,8 +26,11 @@ module AES(LED, HEX0, HEX1, HEX2, sel, clk);
     // AES Decrypt Enable
     reg AESDecryptEnable = 1'b0;
 
+    // Selection Reg
+    reg [1:0] selReg = 0;
+
     // 128-bit AES
-    wire aesReset128 = sel == 0 ? 1'b0 : 1'b1;
+    wire aesReset128 = selReg == 0 ? 1'b0 : 1'b1;
     wire [127:0] tempEncryptedOutput128;
     wire [127:0] tempDecryptedOutput128;
     wire [1407:0] allKeys128;
@@ -34,7 +40,7 @@ module AES(LED, HEX0, HEX1, HEX2, sel, clk);
     AESDecrypt #(4, 10) aesd128(tempEncryptedOutput128, allKeys128, tempDecryptedOutput128, clk, AESDecryptEnable, aesReset128);
 
     // 192-bit AES
-    wire aesReset192 = sel == 1 ? 1'b0 : 1'b1;
+    wire aesReset192 = selReg == 1 ? 1'b0 : 1'b1;
     wire [127:0] tempEncryptedOutput192;
     wire [127:0] tempDecryptedOutput192;
     wire [1663:0] allKeys192;
@@ -44,7 +50,7 @@ module AES(LED, HEX0, HEX1, HEX2, sel, clk);
     AESDecrypt #(6, 12) aesd192(tempEncryptedOutput192, allKeys192, tempDecryptedOutput192, clk, AESDecryptEnable, aesReset192);
 
     // 256-bit AES
-    wire aesReset256 = (sel == 2 || sel == 3) ? 1'b0 : 1'b1;
+    wire aesReset256 = (selReg == 2 || selReg == 3) ? 1'b0 : 1'b1;
     wire [127:0] tempEncryptedOutput256;
     wire [127:0] tempDecryptedOutput256;
     wire [1919:0] allKeys256;
@@ -54,8 +60,8 @@ module AES(LED, HEX0, HEX1, HEX2, sel, clk);
     AESDecrypt #(8, 14) aesd256(tempEncryptedOutput256, allKeys256, tempDecryptedOutput256, clk, AESDecryptEnable, aesReset256);
 
     // Encrypted and Decrypted Data
-    wire [127:0] tempEncryptedOutput = sel == 0 ? tempEncryptedOutput128 : sel == 1 ? tempEncryptedOutput192 : tempEncryptedOutput256;
-    wire [127:0] tempDecryptedOutput = sel == 0 ? tempDecryptedOutput128 : sel == 1 ? tempDecryptedOutput192 : tempDecryptedOutput256;
+    wire [127:0] tempEncryptedOutput = selReg == 0 ? tempEncryptedOutput128 : selReg == 1 ? tempEncryptedOutput192 : tempEncryptedOutput256;
+    wire [127:0] tempDecryptedOutput = selReg == 0 ? tempDecryptedOutput128 : selReg == 1 ? tempDecryptedOutput192 : tempDecryptedOutput256;
 
     // Assign bcdInput based on count
     // count = 0 -> Encrypted Data
@@ -76,22 +82,26 @@ module AES(LED, HEX0, HEX1, HEX2, sel, clk);
     assign LED = (tempDecryptedOutput == data && count > Nr + 1);
 
     // Previous Selection
-    reg [1:0] prevSel;
+    reg [1:0] prevSel = 2'b0;
 
     always @(negedge clk) begin
-        if (count == 0 || sel != prevSel) begin
+        prevSel = selReg;
+        selReg = sel;
+
+        if (prevSel != selReg) begin
+            prevSel = selReg;
             count = 0;
             AESDecryptEnable = 1'b0;
-            prevSel = sel;
         end
+        else begin
+            if (count == Nr)
+                AESDecryptEnable = 1'b1;
+            else if (count == ((Nr + 1) * 2))
+                AESDecryptEnable = 1'b0;
 
-        if (count == Nr)
-            AESDecryptEnable = 1'b1;
-        else if (count == ((Nr + 1) * 2))
-            AESDecryptEnable = 1'b0;
-
-        if (count <= (Nr + 1) * 2)
-            count <= count + 6'b000001;
+            if (count <= (Nr + 1) * 2)
+                count = count + 6'b000001;
+        end
     end
 endmodule
 
