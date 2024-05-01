@@ -1,6 +1,7 @@
 module AES(LED, HEX0, HEX1, HEX2, sel, clk);
     input [1:0] sel; // 00 -> 128-bit AES, 01 -> 192-bit AES, 10/11 -> 256-bit AES
     input clk;
+
     output LED;
     output [6:0] HEX0;
     output [6:0] HEX1;
