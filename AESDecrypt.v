@@ -6,7 +6,7 @@ module AESDecrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, 
 	input reset;
 	output reg [127:0] state; // Holds the state of the AES decryption
 
-	reg [5:0] roundCount = 0; // Holds the current round count
+	reg [5:0] roundCount = 1; // Holds the current round count
 
 	wire [127:0] subByteWire;
 	wire [127:0] shiftRowsWire;
@@ -30,12 +30,6 @@ module AESDecrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, 
 	// roundCount = 1 -> afterRoundKey
 	// roundCount = 2 to Nr -> mixColumnsWire
 	assign stateOut = (roundCount > 1 && roundCount < Nr + 1) ? mixColumnsWire : afterRoundKey;
-	
-	// Assign state to data on data change and reset roundCount
-	initial @(data) begin 
-		state = data;
-		roundCount = 1;
-	end
 
 	// Update state based on roundCount
 	always @(negedge clk) begin
