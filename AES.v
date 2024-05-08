@@ -1,7 +1,7 @@
-module AES(LEDR, HEX0, HEX1, HEX2, sel, clk, reset);
+module AES(LEDR, HEX0, HEX1, HEX2, sel, clk, rst);
     input [1:0] sel; // 00 -> 128-bit AES, 01 -> 192-bit AES, 10/11 -> 256-bit AES
     input clk;
-    input reset;
+    input rst;
 
     output [2:0]LEDR;
     output [6:0] HEX0;
@@ -30,8 +30,8 @@ module AES(LEDR, HEX0, HEX1, HEX2, sel, clk, reset);
     wire [1407:0] allKeys128;
 
     KeyExpansion #(4, 10) keysGetter128(key128, allKeys128);
-    AESEncrypt #(4, 10) aese128(data, allKeys128, tempEncryptedOutput128, clk, reset);
-    AESDecrypt #(4, 10) aesd128(tempEncryptedOutput128, allKeys128, tempDecryptedOutput128, clk, AES128DecryptEnable, reset);
+    AESEncrypt #(4, 10) aese128(data, allKeys128, tempEncryptedOutput128, clk, rst);
+    AESDecrypt #(4, 10) aesd128(tempEncryptedOutput128, allKeys128, tempDecryptedOutput128, clk, AES128DecryptEnable, rst);
 
     // 192-bit AES
     wire [127:0] tempEncryptedOutput192;
@@ -39,8 +39,8 @@ module AES(LEDR, HEX0, HEX1, HEX2, sel, clk, reset);
     wire [1663:0] allKeys192;
 
     KeyExpansion #(6, 12) keysGetter192(key192, allKeys192);
-    AESEncrypt #(6, 12) aese192(data, allKeys192, tempEncryptedOutput192, clk, reset);
-    AESDecrypt #(6, 12) aesd192(tempEncryptedOutput192, allKeys192, tempDecryptedOutput192, clk, AES192DecryptEnable, reset);
+    AESEncrypt #(6, 12) aese192(data, allKeys192, tempEncryptedOutput192, clk, rst);
+    AESDecrypt #(6, 12) aesd192(tempEncryptedOutput192, allKeys192, tempDecryptedOutput192, clk, AES192DecryptEnable, rst);
 
     // 256-bit AES
     wire [127:0] tempEncryptedOutput256;
@@ -48,8 +48,8 @@ module AES(LEDR, HEX0, HEX1, HEX2, sel, clk, reset);
     wire [1919:0] allKeys256;
 
     KeyExpansion #(8, 14) keysGetter(key256, allKeys256);
-    AESEncrypt #(8, 14) aese256(data, allKeys256, tempEncryptedOutput256, clk, reset);
-    AESDecrypt #(8, 14) aesd256(tempEncryptedOutput256, allKeys256, tempDecryptedOutput256, clk, AES256DecryptEnable, reset);
+    AESEncrypt #(8, 14) aese256(data, allKeys256, tempEncryptedOutput256, clk, rst);
+    AESDecrypt #(8, 14) aesd256(tempEncryptedOutput256, allKeys256, tempDecryptedOutput256, clk, AES256DecryptEnable, rst);
 
 
     // Assign bcdInput based on mode and count
@@ -83,7 +83,7 @@ module AES(LEDR, HEX0, HEX1, HEX2, sel, clk, reset);
 
     always @(negedge clk) begin
 
-        if (reset) begin
+        if (rst) begin
             count = 0;
             AES128DecryptEnable = 1'b0;
             AES192DecryptEnable = 1'b0;
