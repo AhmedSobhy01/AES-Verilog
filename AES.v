@@ -1,8 +1,8 @@
-module AES(LED, HEX0, HEX1, HEX2, sel, clk);
+module AES(LEDR, HEX0, HEX1, HEX2, sel, clk);
     input [1:0] sel; // 00 -> 128-bit AES, 01 -> 192-bit AES, 10/11 -> 256-bit AES
     input clk;
 
-    output LED;
+    output [9:0] LEDR; // 0 -> Encryption, 1 -> Decryption, 7 -> 128-bit AES, 8 -> 192-bit AES, 9 -> 256-bit AES
     output [6:0] HEX0;
     output [6:0] HEX1;
     output [6:0] HEX2;
@@ -76,8 +76,16 @@ module AES(LED, HEX0, HEX1, HEX2, sel, clk);
     DisplayDecoder dd2(bcdOutput[7:4], HEX1);
     DisplayDecoder dd3(bcdOutput[11:8], HEX2);
 
+    // LED = 1 if Encrypted Data has finished
+    assign LEDR[0] = count == Nr + 1;
+
     // LED = 1 if Decrypted Data is same as original data
-    assign LED = (tempDecryptedOutput == data && count > Nr + 1);
+    assign LEDR[1] = (tempDecryptedOutput == data && count > Nr + 1);
+
+    // Mode Selection LEDs
+    assign LEDR[7] = selReg == 0; // 128-bit AES
+    assign LEDR[8] = selReg == 1; // 192-bit AES
+    assign LEDR[9] = selReg == 2; // 256-bit AES
 
     // Previous Selection
     reg [1:0] prevSel = 2'b0;
