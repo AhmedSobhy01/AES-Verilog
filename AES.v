@@ -1,11 +1,18 @@
-module AES(LEDR, HEX0, HEX1, HEX2, sel, clk);
+module AES(LEDR, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, sel, clk, reset, enable);
     input [1:0] sel; // 00 -> 128-bit AES, 01 -> 192-bit AES, 10/11 -> 256-bit AES
     input clk;
+    input reset;
+    input enable;
 
-    output [9:0] LEDR; // 0 -> Encryption, 1 -> Decryption, 7 -> 128-bit AES, 8 -> 192-bit AES, 9 -> 256-bit AES
-    output [6:0] HEX0;
-    output [6:0] HEX1;
-    output [6:0] HEX2;
+    output [9:0] LEDR; // 0 -> Encryption Success, 1 -> Decryption Success, 5 -> 128-bit AES, 6 -> 192-bit AES, 7 -> 256-bit AES, 9 -> Reset
+
+    output [6:0] HEX0; // First bit of state (LSB)
+    output [6:0] HEX1; // Second bit of state
+    output [6:0] HEX2; // Third bit of state
+
+    output [6:0] HEX3; // First hexadecimal digit of state (LSB)
+    output [6:0] HEX4; // Second hexadecimal digit of state
+    output [6:0] HEX5; // Third hexadecimal digit of state
 
     // Keys
     wire [127:0] key128 = 128'h000102030405060708090a0b0c0d0e0f;
@@ -28,7 +35,7 @@ module AES(LEDR, HEX0, HEX1, HEX2, sel, clk);
     reg [1:0] selReg = 0;
 
     // 128-bit AES
-    wire aesReset128 = selReg == 0 ? 1'b0 : 1'b1;
+    wire aesReset128 = (reset || selReg == 0) ? 1'b0 : 1'b1;
     wire [127:0] tempEncryptedOutput128;
     wire [127:0] tempDecryptedOutput128;
     wire [1407:0] allKeys128;
@@ -38,7 +45,7 @@ module AES(LEDR, HEX0, HEX1, HEX2, sel, clk);
     AESDecrypt #(4, 10) aesd128(tempEncryptedOutput128, allKeys128, tempDecryptedOutput128, clk, AESDecryptEnable, aesReset128);
 
     // 192-bit AES
-    wire aesReset192 = selReg == 1 ? 1'b0 : 1'b1;
+    wire aesReset192 = (reset || selReg == 1) ? 1'b0 : 1'b1;
     wire [127:0] tempEncryptedOutput192;
     wire [127:0] tempDecryptedOutput192;
     wire [1663:0] allKeys192;
@@ -48,7 +55,7 @@ module AES(LEDR, HEX0, HEX1, HEX2, sel, clk);
     AESDecrypt #(6, 12) aesd192(tempEncryptedOutput192, allKeys192, tempDecryptedOutput192, clk, AESDecryptEnable, aesReset192);
 
     // 256-bit AES
-    wire aesReset256 = (selReg == 2 || selReg == 3) ? 1'b0 : 1'b1;
+    wire aesReset256 = (reset || selReg == 2 || selReg == 3) ? 1'b0 : 1'b1;
     wire [127:0] tempEncryptedOutput256;
     wire [127:0] tempDecryptedOutput256;
     wire [1919:0] allKeys256;
@@ -65,48 +72,68 @@ module AES(LEDR, HEX0, HEX1, HEX2, sel, clk);
     // count = 0 -> Original Data
     // count = 1 to Nr -> Encrypted Data
     // count = Nr + 2 -> Decrypted Data
-    wire [7:0] bcdInput = (count == 0) ? data[7:0] : (count <= Nr + 1) ? tempEncryptedOutput[7:0] : tempDecryptedOutput[7:0];
+    wire [11:0] bcdInput = (count == 0) ? data[11:0] : (count <= Nr + 1) ? tempEncryptedOutput[11:0] : tempDecryptedOutput[11:0];
 
     // Binary to BCD Logic
     wire [11:0] bcdOutput;
-	Binary2BCD b2b(bcdInput, bcdOutput);
+	Binary2BCD b2b(bcdInput[7:0], bcdOutput);
 
     // 7-Segment Logic
-	DisplayDecoder dd1(bcdOutput[3:0], HEX0);
-    DisplayDecoder dd2(bcdOutput[7:4], HEX1);
-    DisplayDecoder dd3(bcdOutput[11:8], HEX2);
+    wire SevenSegEnable = ~reset;
+	DisplayDecoder dd1(bcdOutput[3:0], HEX0, SevenSegEnable);
+    DisplayDecoder dd2(bcdOutput[7:4], HEX1, SevenSegEnable);
+    DisplayDecoder dd3(bcdOutput[11:8], HEX2, SevenSegEnable);
+
+    DisplayDecoder dd4(bcdInput[3:0], HEX3, SevenSegEnable);
+    DisplayDecoder dd5(bcdInput[7:4], HEX4, SevenSegEnable);
+    DisplayDecoder dd6(bcdInput[11:8], HEX5, SevenSegEnable);
 
     // LED = 1 if Encrypted Data has finished
-    assign LEDR[0] = count == Nr + 1;
+    assign LEDR[0] = count >= Nr + 1;
 
     // LED = 1 if Decrypted Data is same as original data
     assign LEDR[1] = (tempDecryptedOutput == data && count > Nr + 1);
 
     // Mode Selection LEDs
-    assign LEDR[7] = selReg == 0; // 128-bit AES
-    assign LEDR[8] = selReg == 1; // 192-bit AES
-    assign LEDR[9] = selReg == 2; // 256-bit AES
+    assign LEDR[5] = (~reset && selReg == 0); // 128-bit AES
+    assign LEDR[6] = (~reset && selReg == 1); // 192-bit AES
+    assign LEDR[7] = (~reset && selReg == 2); // 256-bit AES
+
+    // Reset LED
+    assign LEDR[9] = reset;
+
+    // Turn off remaining LEDs
+    assign LEDR[4:2] = 3'b0;
+    assign LEDR[8] = 1'b0;
 
     // Previous Selection
     reg [1:0] prevSel = 2'b0;
 
-    always @(negedge clk) begin
-        prevSel = selReg;
-        selReg = sel;
-
-        if (prevSel != selReg) begin
-            prevSel = selReg;
+    always @(negedge clk or posedge reset) begin
+        if (reset) begin
+            prevSel = 2'b0;
+            selReg = 2'b0;
             count = 0;
             AESDecryptEnable = 1'b0;
         end
-        else begin
-            if (count == Nr)
-                AESDecryptEnable = 1'b1;
-            else if (count == ((Nr + 1) * 2))
-                AESDecryptEnable = 1'b0;
+        else if (enable) begin
+            prevSel = selReg;
+            selReg = sel;
 
-            if (count <= (Nr + 1) * 2)
-                count = count + 6'b000001;
+            if (prevSel != selReg) begin
+                prevSel = selReg;
+                count = 0;
+                AESDecryptEnable = 1'b0;
+            end
+            else begin
+                if (count == Nr)
+                    AESDecryptEnable = 1'b1;
+                else if (count == ((Nr + 1) * 2))
+                    AESDecryptEnable = 1'b0;
+
+                if (count <= (Nr + 1) * 2)
+                    count = count + 6'b000001;
+            end
         end
     end
 endmodule
@@ -114,10 +141,12 @@ endmodule
 module AES_DUT();
     reg [1:0] sel = 2'b00;
     reg clk = 1'b1;
-    wire LED;
-    wire [6:0] HEX0, HEX1, HEX2;
+    reg reset = 1'b0;
+    reg enable = 1'b1;
+    wire [9:0] LEDR;
+    wire [6:0] HEX0, HEX1, HEX2, HEX3, HEX4, HEX5;
 
-    AES aes(LED, HEX0, HEX1, HEX2, sel, clk);
+    AES aes(LEDR, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, sel, clk, reset, enable);
 
     integer count = 0;
     initial begin
@@ -129,15 +158,20 @@ module AES_DUT();
                 if (count < 80)
                     count = count + 1;
                 
-                $display("Current Round Count: %0d, LED Status: %b, Encrypted State: %h (%0d), Decrypted State: %h (%0d)", count, LED, aes.tempEncryptedOutput, aes.tempEncryptedOutput[7:0], aes.tempDecryptedOutput, aes.tempDecryptedOutput[7:0]);
+                $display("\n");
+                $display("Current Round Count: %0d, Encrypted State: %h (%0d), Decrypted State: %h (%0d)", count, aes.tempEncryptedOutput, aes.tempEncryptedOutput[7:0], aes.tempDecryptedOutput, aes.tempDecryptedOutput[7:0]);
+                $display("LEDs: Reset: %0d, 256-bit AES: %0d, 192-bit AES: %0d, 128-bit AES: %0d, Decryption: %0d, Encryption: %0d", LEDR[9], LEDR[7], LEDR[6], LEDR[5], LEDR[1], LEDR[0]);
+                $display("HEX: %b (%h) %b (%h) %b (%h) %b (%0d) %b (%0d) %b (%0d)", HEX5, aes.bcdInput[11:8], HEX4, aes.bcdInput[7:4], HEX3, aes.bcdInput[3:0], HEX2, aes.bcdOutput[11:8], HEX1, aes.bcdOutput[7:4], HEX0, aes.bcdOutput[3:0]);
 
                 if (count == 23) begin
+                    $display("\n");
                     $display("==============================================");
                     $display("Switching to 192-bit AES Encryption and Decryption");
                     $display("==============================================");
                     sel = 2'b01;
                 end
                 else if (count == 50) begin
+                    $display("\n");
                     $display("==============================================");
                     $display("Switching to 256-bit AES Encryption and Decryption");
                     $display("==============================================");
@@ -149,6 +183,7 @@ module AES_DUT();
 
     initial begin
         $display("AES Encryption and Decryption");
+        $display("\n");
         $display("================================");
         $display("128-bit AES Encryption and Decryption");
         $display("================================");
