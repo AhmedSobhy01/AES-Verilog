@@ -35,34 +35,34 @@ module AES(LEDR, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, sel, clk, reset, enable);
     reg [1:0] selReg = 0;
 
     // 128-bit AES
-    wire aesReset128 = (reset || selReg == 0) ? 1'b0 : 1'b1;
+    wire aesReset128 = (reset || selReg != 0) ? 1'b1 : 1'b0;
     wire [127:0] tempEncryptedOutput128;
     wire [127:0] tempDecryptedOutput128;
     wire [1407:0] allKeys128;
 
     KeyExpansion #(4, 10) keysGetter128(key128, allKeys128);
-    AESEncrypt #(4, 10) aese128(data, allKeys128, tempEncryptedOutput128, clk, aesReset128);
-    AESDecrypt #(4, 10) aesd128(tempEncryptedOutput128, allKeys128, tempDecryptedOutput128, clk, AESDecryptEnable, aesReset128);
+    AESEncrypt #(4, 10) aese128(data, allKeys128, tempEncryptedOutput128, clk, enable, aesReset128);
+    AESDecrypt #(4, 10) aesd128(tempEncryptedOutput128, allKeys128, tempDecryptedOutput128, clk, AESDecryptEnable & enable, aesReset128);
 
     // 192-bit AES
-    wire aesReset192 = (reset || selReg == 1) ? 1'b0 : 1'b1;
+    wire aesReset192 = (reset || selReg != 1) ? 1'b1 : 1'b0;
     wire [127:0] tempEncryptedOutput192;
     wire [127:0] tempDecryptedOutput192;
     wire [1663:0] allKeys192;
 
     KeyExpansion #(6, 12) keysGetter192(key192, allKeys192);
-    AESEncrypt #(6, 12) aese192(data, allKeys192, tempEncryptedOutput192, clk, aesReset192);
-    AESDecrypt #(6, 12) aesd192(tempEncryptedOutput192, allKeys192, tempDecryptedOutput192, clk, AESDecryptEnable, aesReset192);
+    AESEncrypt #(6, 12) aese192(data, allKeys192, tempEncryptedOutput192, clk, enable, aesReset192);
+    AESDecrypt #(6, 12) aesd192(tempEncryptedOutput192, allKeys192, tempDecryptedOutput192, clk, AESDecryptEnable & enable, aesReset192);
 
     // 256-bit AES
-    wire aesReset256 = (reset || selReg == 2 || selReg == 3) ? 1'b0 : 1'b1;
+    wire aesReset256 = (reset || selReg == 0 || selReg == 1) ? 1'b1 : 1'b0;
     wire [127:0] tempEncryptedOutput256;
     wire [127:0] tempDecryptedOutput256;
     wire [1919:0] allKeys256;
 
     KeyExpansion #(8, 14) keysGetter(key256, allKeys256);
-    AESEncrypt #(8, 14) aese256(data, allKeys256, tempEncryptedOutput256, clk, aesReset256);
-    AESDecrypt #(8, 14) aesd256(tempEncryptedOutput256, allKeys256, tempDecryptedOutput256, clk, AESDecryptEnable, aesReset256);
+    AESEncrypt #(8, 14) aese256(data, allKeys256, tempEncryptedOutput256, clk, enable, aesReset256);
+    AESDecrypt #(8, 14) aesd256(tempEncryptedOutput256, allKeys256, tempDecryptedOutput256, clk, AESDecryptEnable & enable, aesReset256);
 
     // Encrypted and Decrypted Data
     wire [127:0] tempEncryptedOutput = selReg == 0 ? tempEncryptedOutput128 : selReg == 1 ? tempEncryptedOutput192 : tempEncryptedOutput256;
@@ -97,7 +97,7 @@ module AES(LEDR, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, sel, clk, reset, enable);
     // Mode Selection LEDs
     assign LEDR[5] = (~reset && selReg == 0); // 128-bit AES
     assign LEDR[6] = (~reset && selReg == 1); // 192-bit AES
-    assign LEDR[7] = (~reset && selReg == 2); // 256-bit AES
+    assign LEDR[7] = (~reset && (selReg == 2 || selReg == 3)); // 256-bit AES
 
     // Reset LED
     assign LEDR[9] = reset;
@@ -111,8 +111,8 @@ module AES(LEDR, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, sel, clk, reset, enable);
 
     always @(negedge clk or posedge reset) begin
         if (reset) begin
-            prevSel = 2'b0;
-            selReg = 2'b0;
+            prevSel = 2'b00;
+            selReg = sel;
             count = 0;
             AESDecryptEnable = 1'b0;
         end
@@ -120,7 +120,7 @@ module AES(LEDR, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, sel, clk, reset, enable);
             prevSel = selReg;
             selReg = sel;
 
-            if (prevSel != selReg) begin
+            if (prevSel != selReg && !(selReg == 2 && prevSel == 3 || selReg == 3 && prevSel == 2)) begin
                 prevSel = selReg;
                 count = 0;
                 AESDecryptEnable = 1'b0;
