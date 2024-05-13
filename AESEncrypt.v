@@ -1,11 +1,12 @@
-module AESEncrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, clk, reset);
+module AESEncrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, clk, enable, reset);
 	input [127:0] data;
 	input [((Nr + 1) * 128) - 1:0] allKeys;
 	input clk;
 	input reset;
+	input enable;
 	output reg [127:0] state = 0; // Holds the state of the AES encryption
 
-	reg [5:0] roundCount = 0; // Holds the current round count
+	reg [5:0] roundCount = 1; // Holds the current round count
 
 	wire [127:0] subByteWire;
 	wire [127:0] shiftRowsWire;
@@ -25,19 +26,12 @@ module AESEncrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, 
 	// roundCount = Nr + 1 -> shiftRowsWire
 	assign roundKeyInput = (roundCount == 1) ? data : (roundCount < Nr + 1) ? mixColumnsWire : shiftRowsWire;
 
-	// Assign state to data on data change and reset roundCount
-	initial @(data) begin 
-		state = data;
-		roundCount = 1;
-	end
 
 	// Update state based on roundCount
-	always @(negedge clk) begin
-		if (reset) begin
-			state = data;
+	always @(negedge clk or posedge reset) begin
+		if (reset)
 			roundCount = 1;
-		end 
-		else if (roundCount <= Nr + 1) begin
+		else if (enable && roundCount <= Nr + 1) begin
 			state = stateOut;
 			roundCount = roundCount + 6'b000001;
 		end
@@ -55,7 +49,7 @@ module AESEncrypt128_DUT();
 	reg clk;
 
 	KeyExpansion #(Nk, Nr) ke(key, allKeys);
-	AESEncrypt #(Nk, Nr) aes(data, allKeys, out, clk, 1'b0);
+	AESEncrypt #(Nk, Nr) aes(data, allKeys, out, clk, 1'b1, 1'b0);
 
 	initial begin
 		clk = 0;
@@ -74,7 +68,7 @@ module AESEncrypt192_DUT();
 	reg clk;
 
 	KeyExpansion #(Nk, Nr) ke(key, allKeys);
-	AESEncrypt #(Nk, Nr) aes(data, allKeys, out, clk, 1'b0);
+	AESEncrypt #(Nk, Nr) aes(data, allKeys, out, clk, 1'b1, 1'b0);
 
 	initial begin
 		clk = 0;
@@ -93,7 +87,7 @@ module AESEncrypt256_DUT();
 	reg clk;
 
 	KeyExpansion #(Nk, Nr) ke(key, allKeys);
-	AESEncrypt #(Nk, Nr) aes(data, allKeys, out, clk, 1'b0);
+	AESEncrypt #(Nk, Nr) aes(data, allKeys, out, clk, 1'b1, 1'b0);
 
 	initial begin
 		clk = 0;

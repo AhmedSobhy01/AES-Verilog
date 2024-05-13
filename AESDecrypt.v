@@ -6,7 +6,7 @@ module AESDecrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, 
 	input reset;
 	output reg [127:0] state; // Holds the state of the AES decryption
 
-	reg [5:0] roundCount = 0; // Holds the current round count
+	reg [5:0] roundCount = 1; // Holds the current round count
 
 	wire [127:0] subByteWire;
 	wire [127:0] shiftRowsWire;
@@ -30,15 +30,9 @@ module AESDecrypt #(parameter Nk = 4, parameter Nr = 10) (data, allKeys, state, 
 	// roundCount = 1 -> afterRoundKey
 	// roundCount = 2 to Nr -> mixColumnsWire
 	assign stateOut = (roundCount > 1 && roundCount < Nr + 1) ? mixColumnsWire : afterRoundKey;
-	
-	// Assign state to data on data change and reset roundCount
-	initial @(data) begin 
-		state = data;
-		roundCount = 1;
-	end
 
 	// Update state based on roundCount
-	always @(negedge clk) begin
+	always @(negedge clk or posedge reset) begin
 		if (reset)
 			roundCount = 1;
 		else if (enable && roundCount <= Nr + 1) begin
@@ -59,7 +53,7 @@ module AESDecrypt128_DUT();
 	reg clk;
 
 	KeyExpansion #(Nk, Nr) ke(key, allKeys);
-	AESDecrypt #(Nk, Nr) aes(data, allKeys, out, clk, 1'b1);
+	AESDecrypt #(Nk, Nr) aes(data, allKeys, out, clk, 1'b1, 1'b0);
 
 	initial begin
 		clk = 1'b1;
@@ -78,7 +72,7 @@ module AESDecrypt192_DUT();
 	reg clk;
 
 	KeyExpansion #(Nk, Nr) ke(key, allKeys);
-	AESDecrypt #(Nk, Nr) aes(data, allKeys, out, clk, 1'b1);
+	AESDecrypt #(Nk, Nr) aes(data, allKeys, out, clk, 1'b1, 1'b0);
 
 	initial begin
 		clk = 1'b1;
@@ -97,7 +91,7 @@ module AESDecrypt256_DUT();
 	reg clk;
 
 	KeyExpansion ke(key, allKeys);
-	AESDecrypt aes(data, allKeys, out, clk, 1, 0);
+	AESDecrypt aes(data, allKeys, out, clk, 1'b1, 1'b0);
 
 	initial begin
 		clk = 1'b1;
