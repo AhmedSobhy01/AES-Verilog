@@ -99,12 +99,14 @@ module AES(LEDR, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, sel, clk, reset, enable);
     assign LEDR[6] = (~reset && selReg == 1); // 192-bit AES
     assign LEDR[7] = (~reset && (selReg == 2 || selReg == 3)); // 256-bit AES
 
+	// Enable LED
+	assign LEDR[8] = enable;
+	
     // Reset LED
     assign LEDR[9] = reset;
-
+	
     // Turn off remaining LEDs
     assign LEDR[4:2] = 3'b0;
-    assign LEDR[8] = 1'b0;
 
     // Previous Selection
     reg [1:0] prevSel = 2'b0;
