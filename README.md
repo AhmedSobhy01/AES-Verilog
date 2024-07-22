@@ -86,14 +86,14 @@ Root directory contains all Verilog modules, each module file includes a module 
 	<a href = "https://github.com/AWS132">
 	  <img src = "https://github.com/AWS132.png" width = 100>
 	  <br />
-	  <sub> Ahmed Walid </sub>
+	  <sub> Ahmed Waleed </sub>
 	</a>
   </td>
   <td align = "center"> 
 	<a href = "https://github.com/anas-ibrahem">
 	  <img src = "https://github.com/anas-ibrahem.png" width = 100>
 	  <br />
-	  <sub> Anas Ibrahim </sub>
+	  <sub> Anas Ibrahem </sub>
 	</a>
   </td>
 </tr>
