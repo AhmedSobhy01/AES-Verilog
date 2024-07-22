@@ -1,4 +1,4 @@
-# <center>AES Encryption using Verilog on FPGA</center>
+# <h1 align="center">AES Encryption using Verilog on FPGA</h1>
 
 https://github.com/user-attachments/assets/89a8f95d-6bfe-42bc-836b-53730abd24ab
 
